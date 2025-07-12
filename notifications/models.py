@@ -83,9 +83,9 @@ class Notification(models.Model):
         return cls.objects.create(
             recipient=swap_request.target_user,
             notification_type='swap_requested',
-            title=f'Task swap request: {swap_request.task.title}',
-            message=f'{swap_request.requester.first_name} wants to swap task: {swap_request.task.title}',
-            related_task=swap_request.task,
+            title=f'Task swap request: {swap_request.requester_task.title} ↔ {swap_request.target_task.title}',
+            message=f'{swap_request.requester.first_name} wants to swap "{swap_request.requester_task.title}" with your task "{swap_request.target_task.title}"',
+            related_task=swap_request.target_task,
             related_swap=swap_request
         )
 
@@ -95,8 +95,8 @@ class Notification(models.Model):
         return cls.objects.create(
             recipient=swap_request.requester,
             notification_type='swap_approved',
-            title=f'Swap approved: {swap_request.task.title}',
-            message=f'Your swap request for {swap_request.task.title} has been approved',
-            related_task=swap_request.task,
+            title=f'Swap approved: {swap_request.requester_task.title} ↔ {swap_request.target_task.title}',
+            message=f'Your task swap has been approved! You now have "{swap_request.target_task.title}" and {swap_request.target_user.first_name} has "{swap_request.requester_task.title}"',
+            related_task=swap_request.target_task,
             related_swap=swap_request
         )

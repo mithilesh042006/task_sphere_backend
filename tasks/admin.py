@@ -25,7 +25,7 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(TaskSwap)
 class TaskSwapAdmin(admin.ModelAdmin):
-    list_display = ['task', 'requester', 'target_user', 'status', 'admin_approved', 'user_approved', 'created_at']
+    list_display = ['requester_task', 'target_task', 'requester', 'target_user', 'status', 'admin_approved', 'user_approved', 'created_at']
     list_filter = ['status', 'admin_approved', 'user_approved', 'created_at']
-    search_fields = ['task__title', 'requester__user_id', 'target_user__user_id']
+    search_fields = ['requester_task__title', 'target_task__title', 'requester__user_id', 'target_user__user_id']
     readonly_fields = ['created_at', 'updated_at', 'admin_approved_at', 'user_approved_at']

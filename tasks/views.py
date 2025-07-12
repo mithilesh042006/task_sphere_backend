@@ -130,30 +130,46 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
 @permission_classes([permissions.IsAuthenticated])
 def create_task_swap(request, task_id):
     """Create task swap request"""
-    task = get_object_or_404(Task, id=task_id)
+    requester_task = get_object_or_404(Task, id=task_id)
 
     # Check if user can swap this task (must be assigned to them)
-    if not task.is_assigned_to_user(request.user):
+    if not requester_task.is_assigned_to_user(request.user):
         return Response({'error': 'You can only swap tasks assigned to you'},
                        status=status.HTTP_403_FORBIDDEN)
 
     serializer = TaskSwapCreateSerializer(data=request.data)
     if serializer.is_valid():
         target_user = serializer.validated_data['target_user_id']
+        target_task = serializer.validated_data['target_task_id']
 
         # Check if target user is in the same group
-        if not task.group.members.filter(id=target_user.id).exists():
+        if not requester_task.group.members.filter(id=target_user.id).exists():
             return Response({'error': 'Target user must be a member of the same group'},
                            status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if target task is assigned to target user
+        if not target_task.is_assigned_to_user(target_user):
+            return Response({'error': 'Target task must be assigned to the target user'},
+                           status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if both tasks are in the same group
+        if requester_task.group != target_task.group:
+            return Response({'error': 'Both tasks must be in the same group'},
+                           status=status.HTTP_400_BAD_REQUEST)
+
         # Check if swap already exists
-        if TaskSwap.objects.filter(task=task, requester=request.user, target_user=target_user).exists():
+        if TaskSwap.objects.filter(
+            requester_task=requester_task,
+            target_task=target_task,
+            requester=request.user
+        ).exists():
             return Response({'error': 'Swap request already exists'},
                            status=status.HTTP_400_BAD_REQUEST)
 
         # Create swap request
         swap = TaskSwap.objects.create(
-            task=task,
+            requester_task=requester_task,
+            target_task=target_task,
             requester=request.user,
             target_user=target_user
         )
@@ -179,7 +195,7 @@ class TaskSwapListView(generics.ListAPIView):
         return TaskSwap.objects.filter(
             Q(requester=user) |
             Q(target_user=user) |
-            Q(task__group__creator=user)
+            Q(requester_task__group__creator=user)
         ).distinct()
 
 

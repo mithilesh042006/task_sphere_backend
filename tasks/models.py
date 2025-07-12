@@ -92,8 +92,21 @@ class TaskSwap(models.Model):
         ('rejected', 'Rejected'),
     ]
 
-    # The task being swapped
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='swap_requests')
+    # The task being swapped (requester's task)
+    requester_task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='swap_requests_as_requester',
+        help_text="Task that the requester wants to give away"
+    )
+
+    # The task that requester wants to receive
+    target_task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='swap_requests_as_target',
+        help_text="Task that the requester wants to receive"
+    )
 
     # Users involved in the swap
     requester = models.ForeignKey(
@@ -124,14 +137,14 @@ class TaskSwap(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['task', 'requester', 'target_user']
+        # unique_together = ['requester_task', 'target_task', 'requester']  # Temporarily disabled for migration
 
     def __str__(self):
-        return f"Swap: {self.task.title} ({self.requester.user_id} -> {self.target_user.user_id})"
+        return f"Swap: {self.requester_task.title} ↔ {self.target_task.title} ({self.requester.user_id} ↔ {self.target_user.user_id})"
 
     def approve_by_admin(self, admin_user):
         """Approve swap by group admin"""
-        if self.task.group.is_admin(admin_user):
+        if self.requester_task.group.is_admin(admin_user):
             from django.utils import timezone
             self.admin_approved = True
             self.admin_approved_at = timezone.now()
@@ -168,7 +181,16 @@ class TaskSwap(models.Model):
             self.status = 'pending_admin'
 
     def execute_swap(self):
-        """Execute the task swap by reassigning the task"""
+        """Execute the task swap by swapping assignments of both tasks"""
         if self.status == 'approved':
-            self.task.assigned_to_user = self.target_user
-            self.task.save()
+            # Store original assignments
+            requester_task_user = self.requester_task.assigned_to_user
+            target_task_user = self.target_task.assigned_to_user
+
+            # Swap the assignments
+            self.requester_task.assigned_to_user = target_task_user
+            self.target_task.assigned_to_user = requester_task_user
+
+            # Save both tasks
+            self.requester_task.save()
+            self.target_task.save()
